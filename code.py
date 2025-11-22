@@ -1,264 +1,280 @@
+"""
+Disaster Response Routing System
+CS2009 - Design and Analysis of Algorithms
+FAST-NU Islamabad | Instructor: Zeshan Khan
+Date: 24 November 2025
+
+This program simulates rescue vehicles delivering supplies in a disaster zone
+with dynamic road blockages, priority locations, and limited vehicle capacity.
+"""
+
 import json
 import heapq
 import random
 import os
+from typing import List, Dict, Tuple
 
-# --- 1. Simulation Classes ---
+# ==================================================================
+# 1. DATA STRUCTURES - Represent roads and vehicles
+# ==================================================================
 
-class Edge:
-    def __init__(self, u, v, cost, reliability):
-        self.u = u
-        self.v = v
-        self.cost = cost
+class Road:
+    """Represents a road between two locations with travel time and reliability"""
+    def __init__(self, start: int, end: int, time_cost: int, reliability: float):
+        self.start = start
+        self.end = end
+        self.time_cost = time_cost
         self.reliability = reliability
-        self.is_blocked = False 
+        self.blocked = False  # True if road is damaged
 
-class Vehicle:
-    def __init__(self, v_id, capacity):
-        self.id = v_id
+class RescueVehicle:
+    """Represents a rescue vehicle with capacity and current state"""
+    def __init__(self, vehicle_id: int, capacity: int):
+        self.id = vehicle_id
         self.capacity = capacity
-        self.remaining_capacity = capacity
-        self.current_node = 0
-        self.next_node = None
-        self.progress = 0.0    
-        self.target_node = None
+        self.current_capacity = capacity
         
-        # Stats
-        self.route_history = [0]
-        self.total_cost = 0
-        self.delivered_demand = 0
-        self.reliability_sum = 0
-        self.edges_count = 0
+        self.location = 0                    # Current node (starts at depot)
+        self.next_location = None            # Next node on current path
+        self.movement_progress = 0.0         # 0.0 to 1.0 while moving
         
-        self.current_path = [] 
-        self.state = "IDLE"
+        self.target_location = None          # Final destination node
+        self.path_to_target = []             # Remaining nodes in path
+        self.full_route = [0]                # Complete path taken (for reporting)
+        
+        self.total_time = 0                  # Total travel time
+        self.delivered = 0                   # Total demand satisfied
+        self.reliability_total = 0.0
+        self.edges_used = 0
+        
+        self.status = "WAITING"              # WAITING or MOVING
 
-# --- 2. Pathfinding (Dijkstra) ---
+# ==================================================================
+# 2. PATHFINDING - Find shortest path using Dijkstra (with path reconstruction)
+# ==================================================================
 
-def dijkstra(num_nodes, edges, start_node, end_node):
-    adj = {i: [] for i in range(num_nodes)}
-    for e in edges:
-        if not e.is_blocked:
-            adj[e.u].append((e.v, e.cost, e.reliability))
-            adj[e.v].append((e.u, e.cost, e.reliability))
-
-    pq = [(0, start_node, [])]
-    visited = set()
-    min_costs = {i: float('inf') for i in range(num_nodes)}
-    min_costs[start_node] = 0
-
+def find_shortest_path(node_count: int, roads: List[Road], source: int, destination: int) -> Tuple[float, List[int]]:
+    """
+    Uses Dijkstra's algorithm to find the fastest path from source to destination
+    Returns (total_time, [path]) or (inf, []) if no path exists
+    """
+    graph = {i: [] for i in range(node_count)}
+    
+    # Build adjacency list (only non-blocked roads)
+    for road in roads:
+        if not road.blocked:
+            graph[road.start].append((road.end, road.time_cost, road.reliability))
+            graph[road.end].append((road.start, road.time_cost, road.reliability))
+    
+    pq = [(0, source, [])]  # (time, node, path_so_far)
+    best_time = {i: float('inf') for i in range(node_count)}
+    best_time[source] = 0
+    
     while pq:
-        cost, u, path = heapq.heappop(pq)
-        if u == end_node:
-            return cost, path + [u]
-        if u in visited:
-            continue
-        visited.add(u)
-        for v, c, r in adj[u]:
-            new_cost = cost + c
-            if new_cost < min_costs[v]:
-                min_costs[v] = new_cost
-                heapq.heappush(pq, (new_cost, v, path + [u]))
+        time_so_far, current, path = heapq.heappop(pq)
+        
+        if current == destination:
+            return time_so_far, path + [current]
+            
+        if time_so_far > best_time[current]:
+            continue  # Old entry
+            
+        for neighbor, cost, rel in graph[current]:
+            new_time = time_so_far + cost
+            if new_time < best_time[neighbor]:
+                best_time[neighbor] = new_time
+                heapq.heappush(pq, (new_time, neighbor, path + [current]))
     
     return float('inf'), []
 
-# --- 3. Simulation Engine ---
+# ==================================================================
+# 3. MAIN SIMULATION ENGINE
+# ==================================================================
 
-def run_simulation(json_data):
-    data = json.loads(json_data)
-    nodes_dict = {n['id']: n for n in data['nodes']}
-    edges_obj_list = [Edge(e['u'], e['v'], e['cost'], e['reliability']) for e in data['edges']]
-    vehicles = [Vehicle(v['id'], v['capacity']) for v in data['vehicles']]
+def run_disaster_response_simulation(input_data: str) -> List[RescueVehicle]:
+    """Main simulation loop - runs until all demand is satisfied"""
     
-    # Load Hospitals
-    if "hospitals" in data:
-        HOSPITALS = data["hospitals"]
-    else:
-        HOSPITALS = [0]
-        print("Warning: 'hospitals' key missing. Defaulting to [0].")
-
-    # Initialize vehicles at first hospital
+    data = json.loads(input_data)
+    locations = {node['id']: node for node in data['nodes']}
+    all_roads = [Road(e['u'], e['v'], e['cost'], e['reliability']) for e in data['edges']]
+    vehicles = [RescueVehicle(v['id'], v['capacity']) for v in data['vehicles']]
+    
+    # Safe zones (depots/hospitals) - vehicles return here to reload
+    safe_zones = data.get("hospitals", [0])
     for v in vehicles:
-        v.current_node = HOSPITALS[0]
-        v.route_history = [HOSPITALS[0]]
+        v.location = safe_zones[0]
+        v.full_route = [safe_zones[0]]
     
-    # Track Live Demand (Mutable)
-    live_demands = {n['id']: n['demand'] for n in data['nodes']}
+    # Current remaining demand at each location
+    current_demand = {node['id']: node.get('demand', 0) for node in data['nodes']}
     
-    # Track Reserved Nodes (Nodes currently being targeted by a vehicle)
-    reserved_targets = {} # {node_id: vehicle_id}
-
-    completed_nodes = set()
+    # Prevent two vehicles from going to same location
+    locked_locations: Dict[int, int] = {}  # location → vehicle_id
     
-    total_ticks = 800
-    blockage_interval = 50 
-    ticks_per_edge = 15.0
-    random.seed(42) 
-
-    for tick in range(total_ticks):
+    total_steps = 1000
+    blockage_every = 50
+    steps_per_road = 15
+    random.seed(42)
+    
+    print("Starting disaster response simulation...")
+    
+    for step in range(total_steps):
         
-        # --- A. Blockages ---
-        if tick > 0 and tick % blockage_interval == 0:
-            valid_edges = [e for e in edges_obj_list]
-            if valid_edges:
-                target_edge = random.choice(valid_edges)
-                target_edge.is_blocked = not target_edge.is_blocked
-
-        # --- B. Vehicle Logic ---
-        for v in vehicles:
+        # Random road damage/repair every N steps
+        if step > 0 and step % blockage_every == 0:
+            available_roads = [r for r in all_roads if not r.blocked or r.blocked]
+            if available_roads:
+                road = random.choice(available_roads)
+                road.blocked = not road.blocked
+                status = "DAMAGED" if road.blocked else "REPAIRED"
+                print(f"Step {step}: Road {road.start}-{road.end} {status}")
+        
+        # Process each vehicle
+        for vehicle in vehicles:
             
-            # 1. Check Blockages
-            path_blocked = False
-            if v.state == "MOVING":
-                for e in edges_obj_list:
-                    if ((e.u == v.current_node and e.v == v.next_node) or 
-                        (e.v == v.current_node and e.u == v.next_node)):
-                        if e.is_blocked:
-                            path_blocked = True
+            # If moving and current road is blocked → stop and replan
+            if vehicle.status == "MOVING" and vehicle.next_location is not None:
+                blocked = False
+                for r in all_roads:
+                    if (r.start == vehicle.location and r.end == vehicle.next_location) or \
+                       (r.end == vehicle.location and r.start == vehicle.next_location):
+                        if r.blocked:
+                            blocked = True
                             break
+                if blocked:
+                    print(f"Vehicle {vehicle.id}: Road blocked! Replanning...")
+                    vehicle.status = "WAITING"
+                    vehicle.movement_progress = 0.0
+                    vehicle.next_location = None
+                    vehicle.path_to_target = []
+                    if vehicle.target_location in locked_locations:
+                        del locked_locations[vehicle.target_location]
+                    vehicle.target_location = None
             
-            if path_blocked:
-                v.state = "IDLE"
-                v.progress = 0.0
-                v.next_node = None 
-                v.current_path = []
-                # Release reservation if we were going somewhere but got stuck
-                if v.target_node in reserved_targets and reserved_targets[v.target_node] == v.id:
-                    del reserved_targets[v.target_node]
-                v.target_node = None
-
-            # 2. Decision Making
-            if v.state == "IDLE":
+            # Vehicle is idle - decide what to do
+            if vehicle.status == "WAITING":
                 
-                # Find NEW Target
-                if v.target_node is None:
-                    # Identify all nodes that need help
-                    potential_targets = []
-                    for nid, demand in live_demands.items():
-                        if nid not in HOSPITALS and demand > 0:
-                            # Check if reserved by SOMEONE ELSE
-                            if nid not in reserved_targets:
-                                potential_targets.append(nodes_dict[nid])
+                # Choose next high-priority location if no current target
+                if vehicle.target_location is None:
+                    candidates = []
+                    for loc_id, demand in current_demand.items():
+                        if loc_id not in safe_zones and demand > 0 and loc_id not in locked_locations:
+                            priority = locations[loc_id].get('priority', 0)
+                            candidates.append((priority, demand, loc_id))
                     
-                    # Sort by Priority (High->Low), then Demand
-                    potential_targets.sort(key=lambda x: (-x['priority'], -x['demand']))
+                    # Sort by priority (desc), then demand (desc)
+                    candidates.sort(reverse=True)
                     
-                    # Select best fit
-                    for cand in potential_targets:
-                        if v.remaining_capacity >= live_demands[cand['id']]:
-                            v.target_node = cand['id']
-                            reserved_targets[cand['id']] = v.id # LOCK THIS TARGET
+                    for _, demand_needed, loc_id in candidates:
+                        if vehicle.current_capacity >= demand_needed:
+                            vehicle.target_location = loc_id
+                            locked_locations[loc_id] = vehicle.id
+                            print(f"Vehicle {vehicle.id}: Assigned to location {loc_id} (priority {locations[loc_id]['priority']})")
                             break
                     
-                    # If no target, go to Hospital
-                    if v.target_node is None:
-                        if v.current_node in HOSPITALS:
-                            v.target_node = None 
-                        else:
-                            # Closest Hospital
-                            best_h = None
-                            min_dist = float('inf')
-                            for h in HOSPITALS:
-                                dist, _ = dijkstra(len(nodes_dict), edges_obj_list, v.current_node, h)
-                                if dist < min_dist:
-                                    min_dist = dist
-                                    best_h = h
-                            if best_h is not None:
-                                v.target_node = best_h
-
-                # Plan Path
-                if v.target_node is not None:
-                    cost, path = dijkstra(len(nodes_dict), edges_obj_list, v.current_node, v.target_node)
+                    # If nothing to do, return to safe zone
+                    if vehicle.target_location is None and vehicle.location not in safe_zones:
+                        best_zone = min(safe_zones, 
+                                      key=lambda z: find_shortest_path(len(locations), all_roads, vehicle.location, z)[0])
+                        vehicle.target_location = best_zone
+                
+                # Plan path to target
+                if vehicle.target_location is not None:
+                    time_cost, path = find_shortest_path(len(locations), all_roads, vehicle.location, vehicle.target_location)
                     
-                    if cost == float('inf'):
-                        pass 
-                    elif len(path) > 1:
-                        v.current_path = path[1:] 
-                        v.next_node = v.current_path.pop(0)
-                        v.state = "MOVING"
-                        v.progress = 0.0
-                    elif len(path) == 1 and v.target_node == v.current_node:
-                        # Arrived at Destination
-                        if v.target_node not in HOSPITALS:
-                            # PICKUP LOGIC
-                            demand = live_demands[v.target_node]
-                            pickup = min(v.remaining_capacity, demand)
+                    if time_cost < float('inf') and len(path) > 1:
+                        vehicle.path_to_target = path[1:]
+                        vehicle.next_location = vehicle.path_to_target.pop(0)
+                        vehicle.status = "MOVING"
+                        vehicle.movement_progress = 0.0
+                    elif len(path) == 1:  # Already at destination
+                        if vehicle.target_location not in safe_zones:
+                            # Deliver supplies
+                            needed = current_demand[vehicle.target_location]
+                            delivered = min(vehicle.current_capacity, needed)
+                            vehicle.current_capacity -= delivered
+                            current_demand[vehicle.target_location] -= delivered
+                            vehicle.delivered += delivered
                             
-                            v.remaining_capacity -= pickup
-                            live_demands[v.target_node] -= pickup # Reduce demand globally
-                            v.delivered_demand += pickup
+                            if current_demand[vehicle.target_location] == 0:
+                                print(f"Location {vehicle.target_location} fully served!")
                             
-                            if live_demands[v.target_node] == 0:
-                                completed_nodes.add(v.target_node)
-                            
-                            # Release Reservation
-                            if v.target_node in reserved_targets and reserved_targets[v.target_node] == v.id:
-                                del reserved_targets[v.target_node]
-                                
-                            v.target_node = None 
+                            # Release lock
+                            if vehicle.target_location in locked_locations:
+                                del locked_locations[vehicle.target_location]
+                            vehicle.target_location = None
                         else:
-                            # Arrived at Hospital
-                            v.target_node = None 
-
-            elif v.state == "MOVING":
-                v.progress += (1.0 / ticks_per_edge)
-                if v.progress >= 1.0:
-                    # Cost Tracking
-                    for e in edges_obj_list:
-                        if (e.u == v.current_node and e.v == v.next_node) or (e.v == v.current_node and e.u == v.next_node):
-                            v.total_cost += e.cost
-                            v.reliability_sum += e.reliability
-                            v.edges_count += 1
+                            vehicle.target_location = None  # At safe zone
+            
+            # Vehicle is moving along a road
+            elif vehicle.status == "MOVING":
+                vehicle.movement_progress += 1.0 / steps_per_road
+                if vehicle.movement_progress >= 1.0:
+                    # Arrive at next node
+                    for r in all_roads:
+                        if (r.start == vehicle.location and r.end == vehicle.next_location) or \
+                           (r.end == vehicle.location and r.start == vehicle.next_location):
+                            vehicle.total_time += r.time_cost
+                            vehicle.reliability_total += r.reliability
+                            vehicle.edges_used += 1
                             break
                     
-                    v.current_node = v.next_node
-                    v.route_history.append(v.current_node)
-                    v.state = "IDLE"
-                    v.progress = 0.0
-                    v.next_node = None
-
-        # End condition
-        all_cleared = all(d == 0 for nid, d in live_demands.items() if nid not in HOSPITALS)
-        all_parked = all(v.current_node in HOSPITALS for v in vehicles)
-        if all_cleared and all_parked:
+                    vehicle.location = vehicle.next_location
+                    vehicle.full_route.append(vehicle.location)
+                    vehicle.status = "WAITING"
+                    vehicle.movement_progress = 0.0
+                    vehicle.next_location = None
+        
+        # Check if mission complete
+        all_served = all(current_demand[i] == 0 for i in current_demand if i not in safe_zones)
+        all_home = all(v.location in safe_zones for v in vehicles)
+        if all_served and all_home:
+            print("All locations served. Mission complete!")
             break
-
+    
     return vehicles
 
-# --- 4. Main Execution ---
+# ==================================================================
+# 4. MAIN EXECUTION
+# ==================================================================
 
 if __name__ == "__main__":
-    # File Check
     filename = "data.json"
+    
     if not os.path.exists(filename):
-        print(f"Error: '{filename}' not found. Please create it.")
+        print(f"ERROR: '{filename}' not found!")
+        print("Please create data.json with the sample input from the project.")
         exit()
-        
-    with open(filename, 'r') as f:
-        json_input = f.read()
-
-    print("Running Simulation with Dynamic Reservations...")
-    final_vehicles = run_simulation(json_input)
-
-    # Terminal Report
-    print("\n" + "="*30)
-    print("FINAL SIMULATION REPORT")
-    print("="*30)
-    total_combined_cost = 0
+    
+    with open(filename, 'r') as file:
+        json_input = file.read()
+    
+    print("Disaster Response System Starting...")
+    print("-" * 60)
+    
+    result_vehicles = run_disaster_response_simulation(json_input)
+    
+    print("\n" + "="*60)
+    print("MISSION FINAL REPORT")
+    print("="*60)
+    
+    total_time = 0
     total_edges = 0
-    total_reliability = 0
-
-    for v in final_vehicles:
-        path_str = " -> ".join(map(str, v.route_history))
-        print(f"Vehicle {v.id} Route : {path_str}")
-        print(f"Delivered Demand : {v.delivered_demand}")
-        print(f"Total Cost : {v.total_cost}")
-        print("") 
-        total_combined_cost += v.total_cost
-        total_edges += v.edges_count
-        total_reliability += v.reliability_sum
-
-    avg_reliability = total_reliability / total_edges if total_edges > 0 else 0
-    print(f"Total Combined Cost : {total_combined_cost}")
-    print(f"Average Reliability : {avg_reliability:.3f}")
-    print("="*30 + "\n")
+    total_rel = 0.0
+    
+    for v in result_vehicles:
+        route_str = " → ".join(map(str, v.full_route))
+        print(f"Vehicle {v.id} Route: {route_str}")
+        print(f"   Delivered: {v.delivered} units")
+        print(f"   Travel Time: {v.total_time}")
+        print("")
+        
+        total_time += v.total_time
+        total_edges += v.edges_used
+        total_rel += v.reliability_total
+    
+    avg_reliability = total_rel / total_edges if total_edges > 0 else 0
+    
+    print(f"Total Mission Time: {total_time}")
+    print(f"Average Road Reliability: {avg_reliability:.3f}")
+    print("="*60)
