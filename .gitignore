@@ -1,0 +1,52 @@
+# Python junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Virtual environments (if you ever use them)
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Our generated files (optional — keep if you want to submit clean)
+disaster_response_map.png
+*.html
+
+# But keep these important ones in repo (commented out)
+# !data.json
+# !disaster_response_map.png

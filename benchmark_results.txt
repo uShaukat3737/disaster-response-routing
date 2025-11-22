@@ -1,7 +1,0 @@
-Benchmark completed at: 2025-11-22 14:56:11
-50 nodes, 200 edges: 0.04s [OK]
-200 nodes, 1000 edges: 0.08s [OK]
-500 nodes, 3000 edges: 0.23s [OK]
-1000 nodes, 8000 edges: 0.57s [OK]
-2000 nodes, 16000 edges: 1.47s [OK]
-5000 nodes, 40000 edges: 3.14s [OK]

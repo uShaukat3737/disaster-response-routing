@@ -1,22 +1,32 @@
 {
   "nodes": [
     {"id": 0, "demand": 0, "priority": 0},
-    {"id": 1, "demand": 3, "priority": 5},
-    {"id": 2, "demand": 2, "priority": 3},
-    {"id": 3, "demand": 4, "priority": 4},
-    {"id": 4, "demand": 1, "priority": 2}
+    {"id": 1, "demand": 8, "priority": 5},
+    {"id": 2, "demand": 6, "priority": 4},
+    {"id": 3, "demand": 5, "priority": 5},
+    {"id": 4, "demand": 3, "priority": 3},
+    {"id": 5, "demand": 0, "priority": 0},
+    {"id": 6, "demand": 7, "priority": 5},
+    {"id": 7, "demand": 4, "priority": 4},
+    {"id": 8, "demand": 2, "priority": 2},
+    {"id": 9, "demand": 9, "priority": 5}
   ],
   "edges": [
-    {"u": 0, "v": 1, "cost": 4, "reliability": 0.9},
-    {"u": 0, "v": 2, "cost": 6, "reliability": 0.8},
-    {"u": 1, "v": 2, "cost": 2, "reliability": 0.7},
-    {"u": 1, "v": 3, "cost": 5, "reliability": 0.95},
-    {"u": 2, "v": 3, "cost": 3, "reliability": 0.85},
-    {"u": 3, "v": 4, "cost": 4, "reliability": 0.9}
+    {"u": 0, "v": 1, "cost": 10, "reliability": 0.9},
+    {"u": 0, "v": 2, "cost": 15, "reliability": 0.8},
+    {"u": 1, "v": 3, "cost": 8, "reliability": 0.95},
+    {"u": 2, "v": 4, "cost": 12, "reliability": 0.85},
+    {"u": 3, "v": 5, "cost": 7, "reliability": 1.0},
+    {"u": 4, "v": 5, "cost": 9, "reliability": 0.9},
+    {"u": 1, "v": 6, "cost": 14, "reliability": 0.7},
+    {"u": 6, "v": 7, "cost": 6, "reliability": 0.9},
+    {"u": 7, "v": 8, "cost": 11, "reliability": 0.8},
+    {"u": 8, "v": 9, "cost": 13, "reliability": 0.85},
+    {"u": 9, "v": 5, "cost": 10, "reliability": 0.95}
   ],
   "vehicles": [
-    {"id": 1, "capacity": 5},
-    {"id": 2, "capacity": 6}
+    {"id": 1, "capacity": 12},
+    {"id": 2, "capacity": 15}
   ],
-  "hospitals": [0]
+  "hospitals": [0, 5]
 }
