@@ -71,16 +71,22 @@ def find_shortest_path(node_count: int, roads: List[Road], source: int, destinat
     best_time[source] = 0
     
     while pq:
+        # Pop the current best (smallest-time) node from priority queue
         time_so_far, current, path = heapq.heappop(pq)
         
+        # If we reached the destination, return total time and final path
         if current == destination:
             return time_so_far, path + [current]
             
+        # If this entry is outdated (worse than the best known time), skip it
         if time_so_far > best_time[current]:
-            continue  # Old entry
+            continue  # Ignore old/outdated PQ entries
             
+        # Explore all neighboring roads of the current node
         for neighbor, cost, rel in graph[current]:
-            new_time = time_so_far + cost
+            new_time = time_so_far + cost  # Travel time after moving to neighbor
+            
+            # If this new route gives a shorter time, update and push into PQ
             if new_time < best_time[neighbor]:
                 best_time[neighbor] = new_time
                 heapq.heappush(pq, (new_time, neighbor, path + [current]))
