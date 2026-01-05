@@ -47,20 +47,28 @@ This project implements a routing system that:
 ## 🚀 Technical Implementation
 
 ### 1️⃣ Mathematical Formulation
-The system optimizes a weighted objective function:
+The system minimizes the following weighted objective function:
 
 \[
-\text{Minimize: } 
-\alpha \sum (p_i \times t_i) 
-+ \beta \sum (1 - r_{uv}) 
-+ \gamma \sum \text{idle}_k
+\min \; 
+\alpha \sum_{i \in V} (p_i \cdot t_i)
+\;+\;
+\beta \sum_{(u,v) \in E} (1 - r_{uv})
+\;+\;
+\gamma \sum_{k \in K} \text{idle}_k
 \]
 
 Where:
-- \( p_i \) → Priority of location \( i \)
-- \( t_i \) → Delivery time to location \( i \)
-- \( r_{uv} \) → Reliability score of road \( (u, v) \)
-- \( \text{idle}_k \) → Idle time of vehicle \( k \)
+
+\[
+\begin{aligned}
+p_i &:\ \text{priority of location } i \\
+t_i &:\ \text{delivery time to location } i \\
+r_{uv} &:\ \text{reliability of road } (u,v) \\
+\text{idle}_k &:\ \text{idle time of vehicle } k \\
+\alpha, \beta, \gamma &:\ \text{tunable weighting parameters}
+\end{aligned}
+\]
 
 ---
 
