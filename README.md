@@ -47,28 +47,19 @@ This project implements a routing system that:
 ## 🚀 Technical Implementation
 
 ### 1️⃣ Mathematical Formulation
-The system minimizes the following weighted objective function:
+The system minimizes the following objective function:
 
-\[
-\min \; 
-\alpha \sum_{i \in V} (p_i \cdot t_i)
-\;+\;
-\beta \sum_{(u,v) \in E} (1 - r_{uv})
-\;+\;
-\gamma \sum_{k \in K} \text{idle}_k
-\]
+![Objective Function](https://latex.codecogs.com/svg.image?\min\;\alpha\sum_{i\in%20V}(p_i\cdot%20t_i)+\beta\sum_{(u,v)\in%20E}(1-r_{uv})+\gamma\sum_{k\in%20K}\text{idle}_k)
 
 Where:
 
-\[
-\begin{aligned}
-p_i &:\ \text{priority of location } i \\
-t_i &:\ \text{delivery time to location } i \\
-r_{uv} &:\ \text{reliability of road } (u,v) \\
-\text{idle}_k &:\ \text{idle time of vehicle } k \\
-\alpha, \beta, \gamma &:\ \text{tunable weighting parameters}
-\end{aligned}
-\]
+![Variables](https://latex.codecogs.com/svg.image?\begin{aligned}
+p_i&:\text{priority of location }i\\
+t_i&:\text{delivery time to location }i\\
+r_{uv}&:\text{reliability of road }(u,v)\\
+\text{idle}_k&:\text{idle time of vehicle }k\\
+\alpha,\beta,\gamma&:\text{weighting parameters}
+\end{aligned})
 
 ---
 
