@@ -47,19 +47,21 @@ This project implements a routing system that:
 ## 🚀 Technical Implementation
 
 ### 1️⃣ Mathematical Formulation
-The system minimizes the following objective function:
+The system optimizes a weighted objective function:
 
-![Objective Function](https://latex.codecogs.com/svg.image?\min\;\alpha\sum_{i\in%20V}(p_i\cdot%20t_i)+\beta\sum_{(u,v)\in%20E}(1-r_{uv})+\gamma\sum_{k\in%20K}\text{idle}_k)
+Minimize:
+
+α Σᵢ∈V (pᵢ · tᵢ) + β Σ(u,v)∈E (1 − rᵤᵥ) + γ Σₖ∈K idleₖ
 
 Where:
-
-![Variables](https://latex.codecogs.com/svg.image?\begin{aligned}
-p_i&:\text{priority of location }i\\
-t_i&:\text{delivery time to location }i\\
-r_{uv}&:\text{reliability of road }(u,v)\\
-\text{idle}_k&:\text{idle time of vehicle }k\\
-\alpha,\beta,\gamma&:\text{weighting parameters}
-\end{aligned})
+- **pᵢ** → Priority level of location *i*
+- **tᵢ** → Delivery time to location *i*
+- **rᵤᵥ** → Reliability score of the road connecting locations *u* and *v*
+- **idleₖ** → Idle time of rescue vehicle *k*
+- **V** → Set of all delivery locations (nodes)
+- **E** → Set of all roads (edges)
+- **K** → Set of available rescue vehicles
+- **α, β, γ** → Tunable weighting parameters controlling trade-offs between time, reliability, and vehicle utilization
 
 ---
 
